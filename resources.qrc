@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/plugins/entf_besch" >
+        <file>icon.png</file>
+    </qresource>
+</RCC>
