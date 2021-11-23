@@ -24,7 +24,7 @@
 from qgis.PyQt.QtCore import *
 from qgis.PyQt.QtGui import *
 from qgis.PyQt.QtWidgets import QAction
-
+#test commit
 # Initialize Qt resources from file resources.py
 from .resources import *
 # Import the code for the dialog
@@ -215,7 +215,7 @@ class entf_besch:
             self.iface.addVectorLayer(uri,'','ogr')
             route = self.iface.activeLayer()
 
-
+            #Karte auf CRS der Route setzen
 
             #Printlayout mit Namen als Eingabe aus GUI erstellen
             project  = QgsProject.instance()
