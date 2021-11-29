@@ -199,12 +199,16 @@ class entf_besch:
                 savepath.setText(filepath)
             self.dlg.browse.clicked.connect(getSaveDirectory)
 
+
+
         # show the dialog
         self.dlg.show()
         # Run the dialog event loop
         result = self.dlg.exec_()
         # See if OK was pressed
         if result:
+
+
             #vordefinierte Objekte
             project  = QgsProject.instance()
 
@@ -225,38 +229,39 @@ class entf_besch:
             self.iface.addVectorLayer(uri,'','ogr')
             route = self.iface.activeLayer()
 
-
-            #Printlayout mit Namen als Eingabe aus GUI erstellen
-
-            manager = project.layoutManager()
-            layout = QgsPrintLayout(project)
-
-            layout.initializeDefaults()
-
-            #Namen vergeben und zum Layoutmanager hinzufügen
-            layoutname = self.dlg.proj_name.text()
-            layout.setName(layoutname)
-            manager.addLayout(layout)
-
-
-
-            #Ojekte zum Layout hinzufügen
-            map = QgsLayoutItemMap(layout)
-            ext = route.extent()
-            rectangle = QgsRectangle(ext.xMinimum(),ext.yMinimum(),ext.xMaximum(),ext.yMaximum())
-
-            map.attemptResize(QgsLayoutSize(200,200, QgsUnitTypes.LayoutMillimeters))
-            map.setExtent(rectangle)
-            layout.addLayoutItem(map)
-
-
-
-            #Layout-Export an anegegebenen Pfad
-            filepath = self.dlg.filename.text()
-            layout = manager.layoutByName(layoutname)
-            layoutname = filepath+layout.name()
-            exporter = QgsLayoutExporter(layout)
-            exporter.exportToPdf(filepath+"/"+layout.name()+".pdf", QgsLayoutExporter.PdfExportSettings())
+            if self.dlg.car.isChecked() == True:
+                print("car")
+            # #Printlayout mit Namen als Eingabe aus GUI erstellen
+            #
+            # manager = project.layoutManager()
+            # layout = QgsPrintLayout(project)
+            #
+            # layout.initializeDefaults()
+            #
+            # #Namen vergeben und zum Layoutmanager hinzufügen
+            # layoutname = self.dlg.proj_name.text()
+            # layout.setName(layoutname)
+            # manager.addLayout(layout)
+            #
+            #
+            #
+            # #Ojekte zum Layout hinzufügen
+            # map = QgsLayoutItemMap(layout)
+            # ext = route.extent()
+            # rectangle = QgsRectangle(ext.xMinimum(),ext.yMinimum(),ext.xMaximum(),ext.yMaximum())
+            #
+            # map.attemptResize(QgsLayoutSize(200,200, QgsUnitTypes.LayoutMillimeters))
+            # map.setExtent(rectangle)
+            # layout.addLayoutItem(map)
+            #
+            #
+            #
+            # #Layout-Export an anegegebenen Pfad
+            # filepath = self.dlg.filename.text()
+            # layout = manager.layoutByName(layoutname)
+            # layoutname = filepath+layout.name()
+            # exporter = QgsLayoutExporter(layout)
+            # exporter.exportToPdf(filepath+"/"+layout.name()+".pdf", QgsLayoutExporter.PdfExportSettings())
 
 
             pass
