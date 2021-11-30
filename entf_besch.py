@@ -35,6 +35,28 @@ from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QDialog, QApplication, QFileDialog
 from qgis.core import *
 from qgis.utils import iface
+from qgis.gui import QgsMapTool,QgsMapToolPan
+
+class SendPointToolCoordinates(QgsMapTool):
+    """ Catches the coordinates from a click on a layer and displays them in a UI element
+    """
+    def __init__(self, canvas, window, label):
+        """ Constructor.
+        """
+        QgsMapTool.__init__(self, canvas)
+        self.canvas = canvas
+        self.window = window # where we'll show the coordinates
+        self.label = label
+        self.setCursor(Qt.CrossCursor)
+        window.hide()
+    """ Wird aufgerufen, wenn mit der Maus in den Map-Canvas geklickt wird.
+    """
+    def canvasReleaseEvent(self, event):
+        point = self.toMapCoordinates(event.pos())
+        self.label.setText(str(point.x())+", "+str(point.y()))
+        self.canvas.setMapTool(QgsMapToolPan(self.canvas))
+        self.window.show()
+        self.setCursor(Qt.ArrowCursor)
 
 class entf_besch:
     """QGIS Plugin Implementation."""
@@ -65,26 +87,11 @@ class entf_besch:
 
         # Declare instance attributes
         self.actions = []
-        self.menu = self.tr(u'&entfernungebscheinigung')
+        self.menu = u'&entfernungebscheinigung'
 
         # Check if plugin was started the first time in current QGIS session
         # Must be set in initGui() to survive plugin reloads
         self.first_start = None
-
-    # noinspection PyMethodMayBeStatic
-    def tr(self, message):
-        """Get the translation for a string using Qt translation API.
-
-        We implement this ourselves since we do not inherit QObject.
-
-        :param message: String for translation.
-        :type message: str, QString
-
-        :returns: Translated version of message.
-        :rtype: QString
-        """
-        # noinspection PyTypeChecker,PyArgumentList,PyCallByClass
-        return QCoreApplication.translate('entf_besch', message)
 
 
     def add_action(
@@ -167,7 +174,7 @@ class entf_besch:
         icon_path = ':/plugins/entf_besch/icon.png'
         self.add_action(
             icon_path,
-            text=self.tr(u'Entfernungebscheinigung'),
+            text=u'Entfernungebscheinigung',
             callback=self.run,
             parent=self.iface.mainWindow())
 
@@ -179,19 +186,31 @@ class entf_besch:
         """Removes the plugin menu item and icon from QGIS GUI."""
         for action in self.actions:
             self.iface.removePluginMenu(
-                self.tr(u'&entfernungebscheinigung'),
+                u'&entfernungebscheinigung',
                 action)
             self.iface.removeToolBarIcon(action)
 
 
     def run(self):
         """Run method that performs all the real work"""
+        canvas = self.iface.mapCanvas()
+        def getStartpoint():
+            send_point_tool_coordinates= SendPointToolCoordinates(canvas,self.dlg, self.dlg.startpointlabel)
+            canvas.setMapTool(send_point_tool_coordinates)
 
+
+        def getEndpoint():
+            send_point_tool_coordinates= SendPointToolCoordinates(canvas,self.dlg, self.dlg.endpointLabel)
+            canvas.setMapTool(send_point_tool_coordinates)
         # Create the dialog with elements (after translation) and keep reference
         # Only create GUI ONCE in callback, so that it will only load when the plugin is started
         if self.first_start == True:
             self.first_start = False
             self.dlg = entf_beschDialog()
+
+            self.dlg.startpoint.clicked.connect(getStartpoint)
+
+            self.dlg.endpoint.clicked.connect(getEndpoint)
 
             savepath=self.dlg.filename
             def getSaveDirectory():
@@ -231,37 +250,35 @@ class entf_besch:
 
             if self.dlg.car.isChecked() == True:
                 print("car")
-            # #Printlayout mit Namen als Eingabe aus GUI erstellen
-            #
-            # manager = project.layoutManager()
-            # layout = QgsPrintLayout(project)
-            #
-            # layout.initializeDefaults()
-            #
-            # #Namen vergeben und zum Layoutmanager hinzufügen
-            # layoutname = self.dlg.proj_name.text()
-            # layout.setName(layoutname)
-            # manager.addLayout(layout)
-            #
-            #
-            #
-            # #Ojekte zum Layout hinzufügen
-            # map = QgsLayoutItemMap(layout)
-            # ext = route.extent()
-            # rectangle = QgsRectangle(ext.xMinimum(),ext.yMinimum(),ext.xMaximum(),ext.yMaximum())
-            #
-            # map.attemptResize(QgsLayoutSize(200,200, QgsUnitTypes.LayoutMillimeters))
-            # map.setExtent(rectangle)
-            # layout.addLayoutItem(map)
-            #
-            #
-            #
-            # #Layout-Export an anegegebenen Pfad
-            # filepath = self.dlg.filename.text()
-            # layout = manager.layoutByName(layoutname)
-            # layoutname = filepath+layout.name()
-            # exporter = QgsLayoutExporter(layout)
-            # exporter.exportToPdf(filepath+"/"+layout.name()+".pdf", QgsLayoutExporter.PdfExportSettings())
+
+
+            #Printlayout mit Namen als Eingabe aus GUI erstellen
+
+            manager = project.layoutManager()
+            layout = QgsPrintLayout(project)
+
+            layout.initializeDefaults()
+
+            #Namen vergeben und zum Layoutmanager hinzufügen
+            layoutname = self.dlg.proj_name.text()
+            layout.setName(layoutname)
+            manager.addLayout(layout)
+
+            #Ojekte zum Layout hinzufügen
+            map = QgsLayoutItemMap(layout)
+            ext = route.extent()
+            rectangle = QgsRectangle(ext.xMinimum(),ext.yMinimum(),ext.xMaximum(),ext.yMaximum())
+
+            map.attemptResize(QgsLayoutSize(200,200, QgsUnitTypes.LayoutMillimeters))
+            map.setExtent(rectangle)
+            layout.addLayoutItem(map)
+
+            #Layout-Export an anegegebenen Pfad
+            filepath = self.dlg.filename.text()
+            layout = manager.layoutByName(layoutname)
+            layoutname = filepath+layout.name()
+            exporter = QgsLayoutExporter(layout)
+            exporter.exportToPdf(filepath+"/"+layout.name()+".pdf", QgsLayoutExporter.PdfExportSettings())
 
 
             pass
