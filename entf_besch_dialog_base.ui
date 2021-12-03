@@ -213,7 +213,7 @@ p, li { white-space: pre-wrap; }
     </item>
    </layout>
   </widget>
-  <widget class="QLineEdit" name="endpointLabel">
+  <widget class="QLineEdit" name="endpointlabel">
    <property name="geometry">
     <rect>
      <x>50</x>

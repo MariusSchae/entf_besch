@@ -56,7 +56,7 @@ class SendPointToolCoordinates(QgsMapTool):
         self.label.setText(str(point.x())+", "+str(point.y()))
         self.canvas.setMapTool(QgsMapToolPan(self.canvas))
         self.window.show()
-        self.setCursor(Qt.ArrowCursor)
+        #self.setCursor(Qt.ArrowCursor)
 
 class entf_besch:
     """QGIS Plugin Implementation."""
@@ -193,20 +193,22 @@ class entf_besch:
 
     def run(self):
         """Run method that performs all the real work"""
-        canvas = self.iface.mapCanvas()
-        def getStartpoint():
-            send_point_tool_coordinates= SendPointToolCoordinates(canvas,self.dlg, self.dlg.startpointlabel)
-            canvas.setMapTool(send_point_tool_coordinates)
 
-
-        def getEndpoint():
-            send_point_tool_coordinates= SendPointToolCoordinates(canvas,self.dlg, self.dlg.endpointLabel)
-            canvas.setMapTool(send_point_tool_coordinates)
         # Create the dialog with elements (after translation) and keep reference
         # Only create GUI ONCE in callback, so that it will only load when the plugin is started
         if self.first_start == True:
             self.first_start = False
             self.dlg = entf_beschDialog()
+
+            canvas = self.iface.mapCanvas()
+            def getStartpoint():
+                send_point_tool_coordinates= SendPointToolCoordinates(canvas,self.dlg, self.dlg.startpointlabel)
+                canvas.setMapTool(send_point_tool_coordinates)
+
+
+            def getEndpoint():
+                send_point_tool_coordinates= SendPointToolCoordinates(canvas,self.dlg, self.dlg.endpointlabel)
+                canvas.setMapTool(send_point_tool_coordinates)
 
             self.dlg.startpoint.clicked.connect(getStartpoint)
 
@@ -251,34 +253,36 @@ class entf_besch:
             if self.dlg.car.isChecked() == True:
                 print("car")
 
+            pkt = self.dlg.startpoint.text()
+            print(pkt)
 
-            #Printlayout mit Namen als Eingabe aus GUI erstellen
-
-            manager = project.layoutManager()
-            layout = QgsPrintLayout(project)
-
-            layout.initializeDefaults()
-
-            #Namen vergeben und zum Layoutmanager hinzufügen
-            layoutname = self.dlg.proj_name.text()
-            layout.setName(layoutname)
-            manager.addLayout(layout)
-
-            #Ojekte zum Layout hinzufügen
-            map = QgsLayoutItemMap(layout)
-            ext = route.extent()
-            rectangle = QgsRectangle(ext.xMinimum(),ext.yMinimum(),ext.xMaximum(),ext.yMaximum())
-
-            map.attemptResize(QgsLayoutSize(200,200, QgsUnitTypes.LayoutMillimeters))
-            map.setExtent(rectangle)
-            layout.addLayoutItem(map)
-
-            #Layout-Export an anegegebenen Pfad
-            filepath = self.dlg.filename.text()
-            layout = manager.layoutByName(layoutname)
-            layoutname = filepath+layout.name()
-            exporter = QgsLayoutExporter(layout)
-            exporter.exportToPdf(filepath+"/"+layout.name()+".pdf", QgsLayoutExporter.PdfExportSettings())
+            # #Printlayout mit Namen als Eingabe aus GUI erstellen
+            #
+            # manager = project.layoutManager()
+            # layout = QgsPrintLayout(project)
+            #
+            # layout.initializeDefaults()
+            #
+            # #Namen vergeben und zum Layoutmanager hinzufügen
+            # layoutname = self.dlg.proj_name.text()
+            # layout.setName(layoutname)
+            # manager.addLayout(layout)
+            #
+            # #Ojekte zum Layout hinzufügen
+            # map = QgsLayoutItemMap(layout)
+            # ext = route.extent()
+            # rectangle = QgsRectangle(ext.xMinimum(),ext.yMinimum(),ext.xMaximum(),ext.yMaximum())
+            #
+            # map.attemptResize(QgsLayoutSize(200,200, QgsUnitTypes.LayoutMillimeters))
+            # map.setExtent(rectangle)
+            # layout.addLayoutItem(map)
+            #
+            # #Layout-Export an anegegebenen Pfad
+            # filepath = self.dlg.filename.text()
+            # layout = manager.layoutByName(layoutname)
+            # layoutname = filepath+layout.name()
+            # exporter = QgsLayoutExporter(layout)
+            # exporter.exportToPdf(filepath+"/"+layout.name()+".pdf", QgsLayoutExporter.PdfExportSettings())
 
 
             pass
