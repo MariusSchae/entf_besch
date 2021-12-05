@@ -36,6 +36,8 @@ from PyQt5.QtWidgets import QDialog, QApplication, QFileDialog
 from qgis.core import *
 from qgis.utils import iface
 from qgis.gui import QgsMapTool,QgsMapToolPan
+import requests #um POST an ORS zu schicken
+from pyproj import Proj, transform #Projektion von 25832 zu 4326 für ORS
 
 class SendPointToolCoordinates(QgsMapTool):
     """ Catches the coordinates from a click on a layer and displays them in a UI element
@@ -241,48 +243,80 @@ class entf_besch:
             crs = self.dlg.projection_select.crs()
             project.setCrs(QgsCoordinateReferenceSystem(crs))
 
-            #Erfassung Start-/Endpunkte
+            #Check ob für Autofahrer oder Fußgänger
+
+            if self.dlg.car.isChecked() == True:
+                routeuser = "driving-car"
+                print("car")
+            elif self.dlg.pedestrian.isChecked() == True:
+                routeuser = "foot-walking"
+                print("foot")
 
             #Routing über OpenRouteService
 
-            #Route
-            uri = "C:/Users/Schäfer/Desktop/Studium/Semester_5/GIS_API/PlugIn/route_example.gpkg|layername=route_example"
-            self.iface.addVectorLayer(uri,'','ogr')
+            outProj = Proj('epsg:4326')
+            inProj = Proj('epsg:25832')
+
+            startpoint = self.dlg.startpointlabel.text()
+            endpoint = self.dlg.endpointlabel.text()
+
+            s = startpoint.split(",")
+            e = endpoint.split(",")
+            #transformation von gewähltem crs zu WGS84 für ORS
+            s[0],s[1]= transform(inProj,outProj,s[0],s[1])
+            s=[s[1],s[0]]
+            e[0],e[1]= transform(inProj,outProj,e[0],e[1])
+            e=[e[1],e[0]]#Koordinaten wurden durch Trafo vertauscht, Format: "long,lat" gefordert
+
+            points=s,e
+            print(points)
+            print(routeuser)
+            API_ENDPOINT ="https://api.openrouteservice.org/v2/directions/"+routeuser+"/geojson"
+            print(API_ENDPOINT)
+
+            headers = {
+                'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8',
+                'Authorization': '5b3ce3597851110001cf62481faa0b5ae2c142368bfdfffef95ee6a1',
+                'Content-Type': 'application/json; charset=utf-8'
+            }
+
+            body={"coordinates":points}
+            API_ENDPOINT ="https://api.openrouteservice.org/v2/directions/"+routeuser+"/geojson"
+            call = requests.post(API_ENDPOINT,json=body, headers=headers)
+
+
+            #Route hinzufügen
+            self.iface.addVectorLayer(call.text,'test','ogr')
             route = self.iface.activeLayer()
 
-            if self.dlg.car.isChecked() == True:
-                print("car")
 
-            pkt = self.dlg.startpoint.text()
-            print(pkt)
+            #Printlayout mit Namen als Eingabe aus GUI erstellen
 
-            # #Printlayout mit Namen als Eingabe aus GUI erstellen
-            #
-            # manager = project.layoutManager()
-            # layout = QgsPrintLayout(project)
-            #
-            # layout.initializeDefaults()
-            #
-            # #Namen vergeben und zum Layoutmanager hinzufügen
-            # layoutname = self.dlg.proj_name.text()
-            # layout.setName(layoutname)
-            # manager.addLayout(layout)
-            #
-            # #Ojekte zum Layout hinzufügen
-            # map = QgsLayoutItemMap(layout)
-            # ext = route.extent()
-            # rectangle = QgsRectangle(ext.xMinimum(),ext.yMinimum(),ext.xMaximum(),ext.yMaximum())
-            #
-            # map.attemptResize(QgsLayoutSize(200,200, QgsUnitTypes.LayoutMillimeters))
-            # map.setExtent(rectangle)
-            # layout.addLayoutItem(map)
-            #
-            # #Layout-Export an anegegebenen Pfad
-            # filepath = self.dlg.filename.text()
-            # layout = manager.layoutByName(layoutname)
-            # layoutname = filepath+layout.name()
-            # exporter = QgsLayoutExporter(layout)
-            # exporter.exportToPdf(filepath+"/"+layout.name()+".pdf", QgsLayoutExporter.PdfExportSettings())
+            manager = project.layoutManager()
+            layout = QgsPrintLayout(project)
+
+            layout.initializeDefaults()
+
+            #Namen vergeben und zum Layoutmanager hinzufügen
+            layoutname = self.dlg.proj_name.text()
+            layout.setName(layoutname)
+            manager.addLayout(layout)
+
+            #Ojekte zum Layout hinzufügen
+            map = QgsLayoutItemMap(layout)
+            ext = route.extent()
+            rectangle = QgsRectangle(ext.xMinimum(),ext.yMinimum(),ext.xMaximum(),ext.yMaximum())
+
+            map.attemptResize(QgsLayoutSize(200,200, QgsUnitTypes.LayoutMillimeters))
+            map.setExtent(rectangle)
+            layout.addLayoutItem(map)
+
+            #Layout-Export an anegegebenen Pfad
+            filepath = self.dlg.filename.text()
+            layout = manager.layoutByName(layoutname)
+            layoutname = filepath+layout.name()
+            exporter = QgsLayoutExporter(layout)
+            exporter.exportToPdf(filepath+"/"+layout.name()+".pdf", QgsLayoutExporter.PdfExportSettings())
 
 
             pass
