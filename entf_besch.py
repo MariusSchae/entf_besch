@@ -38,6 +38,7 @@ from qgis.utils import iface
 from qgis.gui import QgsMapTool,QgsMapToolPan
 import requests #um POST an ORS zu schicken
 from pyproj import Proj, transform #Projektion von 25832 zu 4326 für ORS
+import json #response ORS-API als geoJSON speichern
 
 class SendPointToolCoordinates(QgsMapTool):
     """ Catches the coordinates from a click on a layer and displays them in a UI element
@@ -203,6 +204,7 @@ class entf_besch:
             self.dlg = entf_beschDialog()
 
             canvas = self.iface.mapCanvas()
+
             def getStartpoint():
                 send_point_tool_coordinates= SendPointToolCoordinates(canvas,self.dlg, self.dlg.startpointlabel)
                 canvas.setMapTool(send_point_tool_coordinates)
@@ -215,46 +217,34 @@ class entf_besch:
             def calculateRoute():
                 """vordefinierte Objekte"""
                 project  = QgsProject.instance()
+                filepath = self.dlg.savedirectory.text()
+                filename = self.dlg.proj_name.text()
 
-                """default CRS setzen -> noch wichtig/nutzbar?
-                EPSG wird bei PlugIn Aufruf auf 25832"""
-                defaultcrs = QgsCoordinateReferenceSystem("EPSG:25832")
-                self.dlg.projection_select.setCrs(defaultcrs)
-
-                #CRS  aus Auswahl fürs Projekt setzen
-                crs = self.dlg.projection_select.crs()
-                project.setCrs(QgsCoordinateReferenceSystem(crs))
-
-                #Check ob für Autofahrer oder Fußgänger
-
+                """Radio-Button Auswahl abholen, speichern in Variable für request an ORS-API"""
                 if self.dlg.car.isChecked() == True:
                     routeuser = "driving-car"
                 elif self.dlg.pedestrian.isChecked() == True:
                     routeuser = "foot-walking"
 
-                #Routing über OpenRouteService
-                print(crs.authid())
-                inProj = Proj(crs.authid())
+                """hard coded EPSG für Transformation"""
+                inProj = Proj('epsg:25832')
                 outProj = Proj('epsg:4326')
 
-
+                """Text aus dem GUI abholen -> str"""
                 startpoint = self.dlg.startpointlabel.text()
                 endpoint = self.dlg.endpointlabel.text()
-
+                """aufteilen des string in x,y-Koordinaten"""
                 s = startpoint.split(",")
                 e = endpoint.split(",")
 
-                #transformation von gewähltem crs zu WGS84 für ORS
+                """transformation von ETRS89/utm zu WGS84 für ORS"""
                 s[0],s[1]= transform(inProj,outProj,s[0],s[1])
                 s=[s[1],s[0]]
                 e[0],e[1]= transform(inProj,outProj,e[0],e[1])
                 e=[e[1],e[0]]#Koordinaten wurden durch Trafo vertauscht, Format: "long,lat" gefordert
 
                 points=s,e
-                print(points)
-                print(routeuser)
                 API_ENDPOINT ="https://api.openrouteservice.org/v2/directions/"+routeuser+"/geojson"
-                print(API_ENDPOINT)
 
                 headers = {
                     'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8',
@@ -264,49 +254,76 @@ class entf_besch:
 
                 body={"coordinates":points}
                 API_ENDPOINT ="https://api.openrouteservice.org/v2/directions/"+routeuser+"/geojson"
-                call = requests.post(API_ENDPOINT,json=body, headers=headers)
+                response = requests.post(API_ENDPOINT,json=body, headers=headers)
+                routeastext = response.text
 
+                """response als geojson speichern"""
+                route = json.loads(routeastext)
+                json.dump(route, open(filepath+'/'+filename+'.geojson','w'))
 
-                #Route hinzufügen
-                self.iface.addVectorLayer(call.text,'test','ogr')
+                """Anzahl der Straßen auf Route"""
+                anzahlstrassennamen = len(route['features'][0]['properties']['segments'][0]['steps'])
+
+                """auslesen aus geoJSON """
+                strassennamenliste=[]
+                for x in range(anzahlstrassennamen-1):
+                    strassennamenliste.append(route['features'][0]['properties']['segments'][0]['steps'][x]['name'])
+
+                """Duplikate entfernen (Umwandlung in Dictionary)"""
+                strassennamenliste = list(dict.fromkeys(strassennamenliste))
+                for x in range(len(strassennamenliste)):
+                    print(strassennamenliste[x])
+
+                """Route zur Karte hinzufügen"""
+                self.iface.addVectorLayer(filepath+'/'+filename+'.geojson','','ogr')
                 route = self.iface.activeLayer()
 
 
-                #Printlayout mit Namen als Eingabe aus GUI erstellen
+                """Printlayout mit Namen als Eingabe aus GUI erstellen"""
 
-                # manager = project.layoutManager()
-                # layout = QgsPrintLayout(project)
-                #
-                # layout.initializeDefaults()
-                #
-                # #Namen vergeben und zum Layoutmanager hinzufügen
-                # layoutname = self.dlg.proj_name.text()
-                # layout.setName(layoutname)
-                # manager.addLayout(layout)
-                #
-                # #Ojekte zum Layout hinzufügen
-                # map = QgsLayoutItemMap(layout)
-                # ext = route.extent()
-                # rectangle = QgsRectangle(ext.xMinimum(),ext.yMinimum(),ext.xMaximum(),ext.yMaximum())
-                #
-                # map.attemptResize(QgsLayoutSize(200,200, QgsUnitTypes.LayoutMillimeters))
-                # map.setExtent(rectangle)
-                # layout.addLayoutItem(map)
-                #
-                # #Layout-Export an anegegebenen Pfad
-                # filepath = self.dlg.filename.text()
-                # layout = manager.layoutByName(layoutname)
-                # layoutname = filepath+layout.name()
-                # exporter = QgsLayoutExporter(layout)
-                # exporter.exportToPdf(filepath+"/"+layout.name()+".pdf", QgsLayoutExporter.PdfExportSettings())
+                manager = project.layoutManager()
+                layout = QgsPrintLayout(project)
 
-            self.dlg.accepted.connect(calculateRoute)
+                layout.initializeDefaults()
+
+                """Namen vergeben und zum Layoutmanager hinzufügen"""
+                layoutname = self.dlg.proj_name.text()
+                layout.setName(layoutname)
+                manager.addLayout(layout)
+
+                """ Ojekte zum Layout hinzufügen"""
+                map = QgsLayoutItemMap(layout)
+                ext = route.extent()
+                """ Transformation des Extent von 4326 zu 25832 """
+                inProj = 'epsg:4326'
+                outProj = 'epsg:25832'
+                ymin,xmin = transform(inProj,outProj,ext.yMinimum(),ext.xMinimum())
+                ymax,xmax = transform(inProj,outProj,ext.yMaximum(),ext.xMaximum())
+
+                rectangle = QgsRectangle(ymin,xmin,ymax,xmax)
+
+                map.attemptResize(QgsLayoutSize(200,200, QgsUnitTypes.LayoutMillimeters))
+                map.setExtent(rectangle)
+                layout.addLayoutItem(map)
+
+                """Layout-Export an anegegebenen Pfad"""
+
+                layout = manager.layoutByName(layoutname)
+                layoutname = filepath+layout.name()
+                exporter = QgsLayoutExporter(layout)
+                exporter.exportToPdf(filepath+"/"+layout.name()+".pdf", QgsLayoutExporter.PdfExportSettings())
+
+
 
             self.dlg.startpoint.clicked.connect(getStartpoint)
 
             self.dlg.endpoint.clicked.connect(getEndpoint)
 
-            savepath=self.dlg.filename
+            """Namen für Drucklayout/Route abholen
+            Pfad zum ablegen von Drucklayout/Route"""
+
+
+            savepath=self.dlg.savedirectory
             def getSaveDirectory():
                 filepath = QFileDialog.getExistingDirectory(None, "Pfade", "/home")
                 savepath.setText(filepath)
@@ -316,6 +333,8 @@ class entf_besch:
             wichtig für spätere Transformation (hard coded EPSG Trafo von 25832 -> 4326)"""
             QgsProject.instance().setCrs(QgsCoordinateReferenceSystem(25832))
 
+            """ ausführen der Haputmethode, wenn das Fenster mit OK geschlossen wird """
+            self.dlg.accepted.connect(calculateRoute)
         # show the dialog
         self.dlg.show()
         # Run the dialog event loop
