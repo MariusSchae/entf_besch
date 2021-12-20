@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+
 """
 /***************************************************************************
  entf_besch
@@ -236,6 +236,28 @@ class entf_besch:
                 """aufteilen des string in x,y-Koordinaten"""
                 s = startpoint.split(",")
                 e = endpoint.split(",")
+                print(s,e)
+
+                """Start/endpunkt als Layer importieren zur Visualisierung"""
+
+                startpointVis = QgsPoint(float(s[0]),float(s[1]))
+                endpointVis = QgsPoint(float(e[0]),float(e[1]))
+                # print(startpoint_vis)
+                # startpointlayer = QgsVectorLayer("Point", "temporary_points", "memory")
+                # pr = startpointlayer.dataProvider()
+                # # Enter editing mode
+                # startpointlayer.startEditing()
+                # # add fields
+                # pr.addAttributes([])
+                # # add a feature
+                # fet = QgsFeature()
+                # fet.setGeometry( startpoint_vis )
+                # pr.addFeatures( [ fet ] )
+                # # Commit changes
+                # startpointlayer.commitChanges()
+                # project.addMapLayer(startpointlayer)
+                # startpointlayer.renderer().symbol().setColor(QColor(0,225,0))
+                # self.iface.mapCanvas().refresh()
 
                 """transformation von ETRS89/utm zu WGS84 für ORS"""
                 s[0],s[1]= transform(inProj,outProj,s[0],s[1])
@@ -258,26 +280,35 @@ class entf_besch:
                 routeastext = response.text
 
                 """response als geojson speichern"""
-                route = json.loads(routeastext)
-                json.dump(route, open(filepath+'/'+filename+'.geojson','w'))
+                jsonroute = json.loads(routeastext)
+                json.dump(jsonroute, open(filepath+'/'+filename+'.geojson','w'))
 
                 """Anzahl der Straßen auf Route"""
-                anzahlstrassennamen = len(route['features'][0]['properties']['segments'][0]['steps'])
+                anzahlstrassennamen = len(jsonroute['features'][0]['properties']['segments'][0]['steps'])
 
                 """auslesen aus geoJSON """
                 strassennamenliste=[]
                 for x in range(anzahlstrassennamen-1):
-                    strassennamenliste.append(route['features'][0]['properties']['segments'][0]['steps'][x]['name'])
+                    strassennamenliste.append(jsonroute['features'][0]['properties']['segments'][0]['steps'][x]['name'])
 
                 """Duplikate entfernen (Umwandlung in Dictionary)"""
                 strassennamenliste = list(dict.fromkeys(strassennamenliste))
                 for x in range(len(strassennamenliste)):
                     print(strassennamenliste[x])
 
+                """Längenausgabe"""
+                laenge=jsonroute['features'][0]['properties']['segments'][0]['distance']
+
+
                 """Route zur Karte hinzufügen"""
                 self.iface.addVectorLayer(filepath+'/'+filename+'.geojson','','ogr')
                 route = self.iface.activeLayer()
 
+                """Symbolisierung"""
+
+                route.renderer().symbol().setWidth(1.0)
+                route.renderer().symbol().setColor(QColor(0,225,0))
+                route.triggerRepaint()
 
                 """Printlayout mit Namen als Eingabe aus GUI erstellen"""
 
@@ -291,7 +322,13 @@ class entf_besch:
                 layout.setName(layoutname)
                 manager.addLayout(layout)
 
-                """ Ojekte zum Layout hinzufügen"""
+                """zweite Seite hinzufügen"""
+                page = QgsLayoutItemPage(layout)
+                page.setPageSize('A4',QgsLayoutItemPage.Landscape)
+                layout.pageCollection().addPage(page)
+
+
+                """ Hauptkarte zum Layout hinzufügen"""
                 map = QgsLayoutItemMap(layout)
                 ext = route.extent()
                 """ Transformation des Extent von 4326 zu 25832 """
@@ -299,20 +336,80 @@ class entf_besch:
                 outProj = 'epsg:25832'
                 ymin,xmin = transform(inProj,outProj,ext.yMinimum(),ext.xMinimum())
                 ymax,xmax = transform(inProj,outProj,ext.yMaximum(),ext.xMaximum())
-
+                print(ymin,xmin)
+                print(ymax,xmax)
                 rectangle = QgsRectangle(ymin,xmin,ymax,xmax)
-
-                map.attemptResize(QgsLayoutSize(200,200, QgsUnitTypes.LayoutMillimeters))
-                map.setExtent(rectangle)
+                map.attemptResize(QgsLayoutSize(200,175, QgsUnitTypes.LayoutMillimeters))
+                map.attemptMove(QgsLayoutPoint(10,25))
+                map.zoomToExtent(rectangle)
+                massstab =map.scale()
+                map.setScale(massstab+250)
+                map.setFrameEnabled(True)
                 layout.addLayoutItem(map)
 
+                """Nebenkarte für Startpunkt hinzufügen"""
+                mapStart = QgsLayoutItemMap(layout)
+                mapStart.attemptResize(QgsLayoutSize(70,70, QgsUnitTypes.LayoutMillimeters))
+                mapStart.attemptMove(QgsLayoutPoint(218,25))
+                ymin,xmin,ymax,xmax = startpointVis.y()-35,startpointVis.x()-35,startpointVis.y()+35,startpointVis.x()+35
+                print(ymin,xmin)
+                print(ymax,xmax)
+                rectangleStart = QgsRectangle(xmin,ymin,xmax,ymax)
+                mapStart.zoomToExtent(rectangleStart)
+                mapStart.setFrameEnabled(True)
+                layout.addLayoutItem(mapStart)
+
+                """Nebenkarte für Endpuntk hinzufügen"""
+                mapEnd = QgsLayoutItemMap(layout)
+                mapEnd.attemptResize(QgsLayoutSize(70,70, QgsUnitTypes.LayoutMillimeters))
+                mapEnd.attemptMove(QgsLayoutPoint(218,100))
+                ymin,xmin,ymax,xmax = endpointVis.y()-35,endpointVis.x()-35,endpointVis.y()+35,endpointVis.x()+35
+                print(ymin,xmin)
+                print(ymax,xmax)
+                rectangleEnd = QgsRectangle(xmin,ymin,xmax,ymax)
+                mapEnd.zoomToExtent(rectangleEnd)
+                mapEnd.setFrameEnabled(True)
+                layout.addLayoutItem(mapEnd)
+
+
+                """strassennamenliste als Tabelle zum Drucklayout hinzufügen"""
+                table = QgsLayoutItemTextTable(layout)
+                layout.addMultiFrame(table)
+
+                cols = [QgsLayoutTableColumn()]
+                cols[0].setHeading("Straßennamenliste (über):")
+                table.setColumns(cols)
+
+                for i in strassennamenliste:
+                    table.addRow([i])
+
+                frame = QgsLayoutFrame(layout, table)
+                frame.attemptResize(QgsLayoutSize(100, 175), True)
+                table.addFrame(frame)
+                frame.attemptMove(QgsLayoutPoint(215,25),page=1)
+
+                """Drucklayout Gestaltung"""
+                """Überschrift"""
+                head = QgsLayoutItemLabel(layout)
+                head.setText("Kreis Unna - Entfernungebscheinigung")
+                head.setFont(QFont("Arial",16))
+                head.adjustSizeToText()
+                layout.addLayoutItem(head)
+                head.attemptMove(QgsLayoutPoint(10,10))
+
+                """Laengenangabe"""
+                laengelabel = QgsLayoutItemLabel(layout)
+                laengelabel.setText("Länge in Metern: "+str(laenge)+"\n"+str(laenge))
+                laengelabel.setFont(QFont("Arial",12))
+                laengelabel.adjustSizeToText()
+                layout.addLayoutItem(laengelabel)
+                laengelabel.attemptMove(QgsLayoutPoint(10,10), page=1)
                 """Layout-Export an anegegebenen Pfad"""
 
                 layout = manager.layoutByName(layoutname)
                 layoutname = filepath+layout.name()
                 exporter = QgsLayoutExporter(layout)
                 exporter.exportToPdf(filepath+"/"+layout.name()+".pdf", QgsLayoutExporter.PdfExportSettings())
-
 
 
             self.dlg.startpoint.clicked.connect(getStartpoint)
