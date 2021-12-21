@@ -215,6 +215,11 @@ class entf_besch:
                 canvas.setMapTool(send_point_tool_coordinates)
 
             def calculateRoute():
+                """Nachricht ausgeben, dass etwas passiert"""
+                self.iface.messageBar().pushMessage("Plug-in:", "Entfernungebscheinigung wird erstellt!", level=Qgis.Info,duration=3)
+
+
+
                 """vordefinierte Objekte"""
                 project  = QgsProject.instance()
                 filepath = self.dlg.savedirectory.text()
@@ -228,7 +233,9 @@ class entf_besch:
 
                 """hard coded EPSG für Transformation"""
                 inProj = Proj('epsg:25832')
+                qgsInProj = QgsCoordinateReferenceSystem('epsg:25832')
                 outProj = Proj('epsg:4326')
+                qgsOutProj= QgsCoordinateReferenceSystem('epsg:4326')
 
                 """Text aus dem GUI abholen -> str"""
                 startpoint = self.dlg.startpointlabel.text()
@@ -236,28 +243,12 @@ class entf_besch:
                 """aufteilen des string in x,y-Koordinaten"""
                 s = startpoint.split(",")
                 e = endpoint.split(",")
-                print(s,e)
 
-                """Start/endpunkt als Layer importieren zur Visualisierung"""
-
+                """Startpunkt als Layer importieren zur Visualisierung"""
                 startpointVis = QgsPoint(float(s[0]),float(s[1]))
+
+                """Endpunkt für Layer importieren zur Visualisierung abgreifen"""
                 endpointVis = QgsPoint(float(e[0]),float(e[1]))
-                # print(startpoint_vis)
-                # startpointlayer = QgsVectorLayer("Point", "temporary_points", "memory")
-                # pr = startpointlayer.dataProvider()
-                # # Enter editing mode
-                # startpointlayer.startEditing()
-                # # add fields
-                # pr.addAttributes([])
-                # # add a feature
-                # fet = QgsFeature()
-                # fet.setGeometry( startpoint_vis )
-                # pr.addFeatures( [ fet ] )
-                # # Commit changes
-                # startpointlayer.commitChanges()
-                # project.addMapLayer(startpointlayer)
-                # startpointlayer.renderer().symbol().setColor(QColor(0,225,0))
-                # self.iface.mapCanvas().refresh()
 
                 """transformation von ETRS89/utm zu WGS84 für ORS"""
                 s[0],s[1]= transform(inProj,outProj,s[0],s[1])
@@ -293,20 +284,59 @@ class entf_besch:
 
                 """Duplikate entfernen (Umwandlung in Dictionary)"""
                 strassennamenliste = list(dict.fromkeys(strassennamenliste))
-                for x in range(len(strassennamenliste)):
-                    print(strassennamenliste[x])
 
                 """Längenausgabe"""
                 laenge=jsonroute['features'][0]['properties']['segments'][0]['distance']
-
 
                 """Route zur Karte hinzufügen"""
                 self.iface.addVectorLayer(filepath+'/'+filename+'.geojson','','ogr')
                 route = self.iface.activeLayer()
 
+                """Startpunkt als Layer importieren zur Visualisierung"""
+
+                startpointLayer = QgsVectorLayer("Point", filename+"Startpunkt", "memory")
+                pr = startpointLayer.dataProvider()
+
+                """Layer in EditModus setzen"""
+                startpointLayer.startEditing()
+                """Felder hinzufügen"""
+                pr.addAttributes([])
+                """Feature hinzufügen"""
+                fet = QgsFeature()
+                fet.setGeometry( startpointVis )
+                pr.addFeatures( [ fet ] )
+                # Commit changes
+                startpointLayer.commitChanges()
+                startpointLayerProj = QgsCoordinateReferenceSystem('epsg:25832')
+                startpointLayer.setCrs(startpointLayerProj)
+                project.addMapLayer(startpointLayer)
+                startpointLayer.renderer().symbol().setColor(QColor(0,225,0))
+                self.iface.mapCanvas().refresh()
+                """Endpunkt als Layer importieren zur Visualisierung"""
+                endpointLayer = QgsVectorLayer("Point", filename+"Endpunkt", "memory")
+
+                pr = endpointLayer.dataProvider()
+
+                """Layer in EditModus setzen"""
+                endpointLayer.startEditing()
+                """Felder hinzufügen"""
+                pr.addAttributes([])
+                """Feature hinzufügen"""
+                fet = QgsFeature()
+                fet.setGeometry( endpointVis )
+                pr.addFeatures( [ fet ] )
+                # Commit changes
+                endpointLayer.commitChanges()
+                endpointLayerProj = QgsCoordinateReferenceSystem('epsg:25832')
+                endpointLayer.setCrs(endpointLayerProj)
+                project.addMapLayer(endpointLayer)
+                endpointLayer.renderer().symbol().setColor(QColor(225,0,0))
+                self.iface.mapCanvas().refresh()
+
+
                 """Symbolisierung"""
 
-                route.renderer().symbol().setWidth(1.0)
+                route.renderer().symbol().setWidth(0.8)
                 route.renderer().symbol().setColor(QColor(0,225,0))
                 route.triggerRepaint()
 
@@ -324,20 +354,37 @@ class entf_besch:
 
                 """zweite Seite hinzufügen"""
                 page = QgsLayoutItemPage(layout)
-                page.setPageSize('A4',QgsLayoutItemPage.Landscape)
+                page.setPageSize('A4',QgsLayoutItemPage.Portrait)
                 layout.pageCollection().addPage(page)
 
 
-                """ Hauptkarte zum Layout hinzufügen"""
+                """Drucklayout Gestaltung"""
+                """(Seite 1)Überschrift"""
+                headLabel = "Kreis Unna - Entfernungebscheinigung"
+                headp1 = QgsLayoutItemLabel(layout)
+                headp1.setText(headLabel)
+                headp1.setFont(QFont("Arial",18))
+                headp1.adjustSizeToText()
+                layout.addLayoutItem(headp1)
+                headp1.attemptMove(QgsLayoutPoint(10,10))
+
+                """(Seite 1) Kreis Unna Logo """
+                logo = QgsLayoutItemPicture(layout)
+                logo.setMode(QgsLayoutItemPicture.FormatRaster)
+                logo.setPicturePath(self.plugin_dir+"/KU-Logo_RGB.jpg")
+                logo.attemptResize(QgsLayoutSize(15,15), QgsUnitTypes.LayoutMillimeters)
+                logo.attemptMove(QgsLayoutPoint(273,7),0)
+                layout.addLayoutItem(logo)
+
+                """ (Seite 1) Hauptkarte zum Layout hinzufügen"""
                 map = QgsLayoutItemMap(layout)
                 ext = route.extent()
-                """ Transformation des Extent von 4326 zu 25832 """
+
+                """ (Seite 1) Transformation des Extent von 4326 zu 25832 """
                 inProj = 'epsg:4326'
                 outProj = 'epsg:25832'
                 ymin,xmin = transform(inProj,outProj,ext.yMinimum(),ext.xMinimum())
                 ymax,xmax = transform(inProj,outProj,ext.yMaximum(),ext.xMaximum())
-                print(ymin,xmin)
-                print(ymax,xmax)
                 rectangle = QgsRectangle(ymin,xmin,ymax,xmax)
                 map.attemptResize(QgsLayoutSize(200,175, QgsUnitTypes.LayoutMillimeters))
                 map.attemptMove(QgsLayoutPoint(10,25))
@@ -347,37 +394,65 @@ class entf_besch:
                 map.setFrameEnabled(True)
                 layout.addLayoutItem(map)
 
-                """Nebenkarte für Startpunkt hinzufügen"""
+                """(Seite 1) Nebenkarte für Startpunkt hinzufügen"""
                 mapStart = QgsLayoutItemMap(layout)
                 mapStart.attemptResize(QgsLayoutSize(70,70, QgsUnitTypes.LayoutMillimeters))
                 mapStart.attemptMove(QgsLayoutPoint(218,25))
                 ymin,xmin,ymax,xmax = startpointVis.y()-35,startpointVis.x()-35,startpointVis.y()+35,startpointVis.x()+35
-                print(ymin,xmin)
-                print(ymax,xmax)
                 rectangleStart = QgsRectangle(xmin,ymin,xmax,ymax)
                 mapStart.zoomToExtent(rectangleStart)
                 mapStart.setFrameEnabled(True)
                 layout.addLayoutItem(mapStart)
 
-                """Nebenkarte für Endpuntk hinzufügen"""
+                """(Seite 1) Nebenkarte für Endpuntk hinzufügen"""
                 mapEnd = QgsLayoutItemMap(layout)
                 mapEnd.attemptResize(QgsLayoutSize(70,70, QgsUnitTypes.LayoutMillimeters))
                 mapEnd.attemptMove(QgsLayoutPoint(218,100))
                 ymin,xmin,ymax,xmax = endpointVis.y()-35,endpointVis.x()-35,endpointVis.y()+35,endpointVis.x()+35
-                print(ymin,xmin)
-                print(ymax,xmax)
                 rectangleEnd = QgsRectangle(xmin,ymin,xmax,ymax)
                 mapEnd.zoomToExtent(rectangleEnd)
                 mapEnd.setFrameEnabled(True)
                 layout.addLayoutItem(mapEnd)
 
+                """(Seite 2)Überschirft 2. Seite """
+                headp2 = QgsLayoutItemLabel(layout)
+                headp2.setText(headLabel)
+                headp2.setFont(QFont("Arial",18))
+                headp2.adjustSizeToText()
+                layout.addLayoutItem(headp2)
+                headp2.attemptMove(QgsLayoutPoint(10,10), page= 1)
 
-                """strassennamenliste als Tabelle zum Drucklayout hinzufügen"""
+                """(Seite 1) Kreis Unna Logo """
+                logo2 = QgsLayoutItemPicture(layout)
+                logo2.setMode(QgsLayoutItemPicture.FormatRaster)
+                logo2.setPicturePath(self.plugin_dir+"/KU-Logo_RGB.jpg")
+                logo2.attemptResize(QgsLayoutSize(15,15), QgsUnitTypes.LayoutMillimeters)
+                logo2.attemptMove(QgsLayoutPoint(185,7),page = 1)
+                layout.addLayoutItem(logo2)
+
+                """(Seite 2)Angabe zu über """
+                ueberLabel = QgsLayoutItemLabel(layout)
+                ueberLabel.setText("Die Straßen die bei 'über' aufgeführt werden, können nur sehr kleine Streckenanteile haben." )
+                ueberLabel.setFont(QFont("Arial",12))
+                ueberLabel.adjustSizeToText()
+                layout.addLayoutItem(ueberLabel)
+                ueberLabel.attemptMove(QgsLayoutPoint(10,30), page=1)
+
+                """(Seite 2)Startadresse abholen """
+                startadress = self.dlg.startadress.text()
+                startadressLabel = QgsLayoutItemLabel(layout)
+                startadressLabel.setText("von: "+startadress)
+                startadressLabel.setFont(QFont("Arial Black",12))
+                startadressLabel.adjustSizeToText()
+                layout.addLayoutItem(startadressLabel)
+                startadressLabel.attemptMove(QgsLayoutPoint(10,40), page=1)
+
+                """(Seite2)strassennamenliste als Tabelle zum Drucklayout hinzufügen"""
                 table = QgsLayoutItemTextTable(layout)
                 layout.addMultiFrame(table)
 
                 cols = [QgsLayoutTableColumn()]
-                cols[0].setHeading("Straßennamenliste (über):")
+                cols[0].setHeading("über:")
                 table.setColumns(cols)
 
                 for i in strassennamenliste:
@@ -386,30 +461,58 @@ class entf_besch:
                 frame = QgsLayoutFrame(layout, table)
                 frame.attemptResize(QgsLayoutSize(100, 175), True)
                 table.addFrame(frame)
-                frame.attemptMove(QgsLayoutPoint(215,25),page=1)
+                table.setContentFont(QFont("Arial",12))
+                table.setHeaderFont(QFont("Arial",12))
+                frame.attemptMove(QgsLayoutPoint(10,55),page=1)
+                frame.setFrameEnabled(False)
 
-                """Drucklayout Gestaltung"""
-                """Überschrift"""
-                head = QgsLayoutItemLabel(layout)
-                head.setText("Kreis Unna - Entfernungebscheinigung")
-                head.setFont(QFont("Arial",16))
-                head.adjustSizeToText()
-                layout.addLayoutItem(head)
-                head.attemptMove(QgsLayoutPoint(10,10))
+                """(Seite 2)Endadresse abholen """
+                endadress = self.dlg.endadress.text()
 
-                """Laengenangabe"""
-                laengelabel = QgsLayoutItemLabel(layout)
-                laengelabel.setText("Länge in Metern: "+str(laenge)+"\n"+str(laenge))
-                laengelabel.setFont(QFont("Arial",12))
-                laengelabel.adjustSizeToText()
-                layout.addLayoutItem(laengelabel)
-                laengelabel.attemptMove(QgsLayoutPoint(10,10), page=1)
+                endadressLabel = QgsLayoutItemLabel(layout)
+                endadressLabel.setText("nach: "+endadress)
+                endadressLabel.setFont(QFont("Arial Black",12))
+                endadressLabel.adjustSizeToText()
+                layout.addLayoutItem(endadressLabel)
+                endadressLabel.attemptMove(QgsLayoutPoint(10,250), page=1)
+
+                """(Seite 2)Laengenangabe in Metern"""
+                laengeMeterLabel = QgsLayoutItemLabel(layout)
+                laengeMeterLabel.setText("Gesamtlänge des Weges (Meter): ")
+                laengeMeterLabel.setFont(QFont("Arial",15))
+                laengeMeterLabel.adjustSizeToText()
+                layout.addLayoutItem(laengeMeterLabel)
+                laengeMeterLabel.attemptMove(QgsLayoutPoint(10,265), page=1)
+
+                laengeMeterLabelNum = QgsLayoutItemLabel(layout)
+                laengeMeterLabelNum.setText(str(laenge)[:-2])
+                laengeMeterLabelNum.setFont(QFont("Arial Black",15))
+                laengeMeterLabelNum.adjustSizeToText()
+                layout.addLayoutItem(laengeMeterLabelNum)
+                laengeMeterLabelNum.attemptMove(QgsLayoutPoint(110,264), page=1) #einen mm höher wegen fetter Schrift
+
+                """(Seite 2)Laengenangabe in Kilometern"""
+                laengeKilometerLabel = QgsLayoutItemLabel(layout)
+                laengeKilometerLabel.setText("Gesamtlänge des Weges (Kilometer): ")
+                laengeKilometerLabel.setFont(QFont("Arial",15))
+                laengeKilometerLabel.adjustSizeToText()
+                layout.addLayoutItem(laengeKilometerLabel)
+                laengeKilometerLabel.attemptMove(QgsLayoutPoint(10,275), page=1)
+
+                laengeKilometerLabelNum = QgsLayoutItemLabel(layout)
+                laengeKilometerLabelNum.setText(str(round((laenge/1000),1)))
+                laengeKilometerLabelNum.setFont(QFont("Arial Black",15))
+                laengeKilometerLabelNum.adjustSizeToText()
+                layout.addLayoutItem(laengeKilometerLabelNum)
+                laengeKilometerLabelNum.attemptMove(QgsLayoutPoint(110,274), page=1)#einen mm höher wegen fetter Schrift
+
                 """Layout-Export an anegegebenen Pfad"""
 
                 layout = manager.layoutByName(layoutname)
                 layoutname = filepath+layout.name()
                 exporter = QgsLayoutExporter(layout)
                 exporter.exportToPdf(filepath+"/"+layout.name()+".pdf", QgsLayoutExporter.PdfExportSettings())
+
 
 
             self.dlg.startpoint.clicked.connect(getStartpoint)
