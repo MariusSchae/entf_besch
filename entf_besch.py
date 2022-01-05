@@ -57,9 +57,7 @@ class SendPointToolCoordinates(QgsMapTool):
     def canvasReleaseEvent(self, event):
         point = self.toMapCoordinates(event.pos())
         self.label.setText(str(point.x())+", "+str(point.y()))
-        self.canvas.setMapTool(QgsMapToolPan(self.canvas))
         self.window.show()
-        #self.setCursor(Qt.ArrowCursor)
 
 class entf_besch:
     """QGIS Plugin Implementation."""
@@ -209,7 +207,6 @@ class entf_besch:
                 send_point_tool_coordinates= SendPointToolCoordinates(canvas,self.dlg, self.dlg.startpointlabel)
                 canvas.setMapTool(send_point_tool_coordinates)
 
-
             def getEndpoint():
                 send_point_tool_coordinates= SendPointToolCoordinates(canvas,self.dlg, self.dlg.endpointlabel)
                 canvas.setMapTool(send_point_tool_coordinates)
@@ -217,8 +214,6 @@ class entf_besch:
             def calculateRoute():
                 """Nachricht ausgeben, dass etwas passiert"""
                 self.iface.messageBar().pushMessage("Plug-in:", "Entfernungebscheinigung wird erstellt!", level=Qgis.Info,duration=3)
-
-
 
                 """vordefinierte Objekte"""
                 project  = QgsProject.instance()
@@ -240,6 +235,7 @@ class entf_besch:
                 """Text aus dem GUI abholen -> str"""
                 startpoint = self.dlg.startpointlabel.text()
                 endpoint = self.dlg.endpointlabel.text()
+
                 """aufteilen des string in x,y-Koordinaten"""
                 s = startpoint.split(",")
                 e = endpoint.split(",")
@@ -251,10 +247,14 @@ class entf_besch:
                 endpointVis = QgsPoint(float(e[0]),float(e[1]))
 
                 """transformation von ETRS89/utm zu WGS84 für ORS"""
+                print(s)
                 s[0],s[1]= transform(inProj,outProj,s[0],s[1])
-                s=[s[1],s[0]]
+                print(s)
+                #s=[s[1],s[0]]
+                s=s[1],s[0]
+                print(s)
                 e[0],e[1]= transform(inProj,outProj,e[0],e[1])
-                e=[e[1],e[0]]#Koordinaten wurden durch Trafo vertauscht, Format: "long,lat" gefordert
+                e=e[1],e[0]#Koordinaten wurden durch Trafo vertauscht, Format: "long,lat" gefordert
 
                 points=s,e
                 API_ENDPOINT ="https://api.openrouteservice.org/v2/directions/"+routeuser+"/geojson"
@@ -266,9 +266,11 @@ class entf_besch:
                 }
 
                 body={"coordinates":points}
-                API_ENDPOINT ="https://api.openrouteservice.org/v2/directions/"+routeuser+"/geojson"
+
                 response = requests.post(API_ENDPOINT,json=body, headers=headers)
+                print(response)
                 routeastext = response.text
+                print(routeastext)
 
                 """response als geojson speichern"""
                 jsonroute = json.loads(routeastext)
@@ -293,7 +295,6 @@ class entf_besch:
                 route = self.iface.activeLayer()
 
                 """Startpunkt als Layer importieren zur Visualisierung"""
-
                 startpointLayer = QgsVectorLayer("Point", filename+"Startpunkt", "memory")
                 pr = startpointLayer.dataProvider()
 
@@ -334,14 +335,12 @@ class entf_besch:
                 self.iface.mapCanvas().refresh()
 
 
-                """Symbolisierung"""
-
+                """Symbolisierung Route"""
                 route.renderer().symbol().setWidth(0.8)
                 route.renderer().symbol().setColor(QColor(0,225,0))
                 route.triggerRepaint()
 
                 """Printlayout mit Namen als Eingabe aus GUI erstellen"""
-
                 manager = project.layoutManager()
                 layout = QgsPrintLayout(project)
 
