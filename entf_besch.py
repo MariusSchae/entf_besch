@@ -389,7 +389,7 @@ class entf_besch:
                 map.attemptMove(QgsLayoutPoint(10,25))
                 map.zoomToExtent(rectangle)
                 massstab =map.scale()
-                map.setScale(massstab+250)
+                map.setScale(massstab+500)
                 map.setFrameEnabled(True)
                 layout.addLayoutItem(map)
 

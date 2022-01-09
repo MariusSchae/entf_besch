@@ -164,7 +164,7 @@ p, li { white-space: pre-wrap; }
     </rect>
    </property>
   </widget>
-  <widget class="QLineEdit" name="startpointlabel">
+  <widget class="QLineEdit" name="startpointLabel">
    <property name="geometry">
     <rect>
      <x>50</x>
