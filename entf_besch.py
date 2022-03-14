@@ -213,7 +213,7 @@ class entf_besch:
 
             def calculateRoute():
                 """Nachricht ausgeben, dass etwas passiert"""
-                self.iface.messageBar().pushMessage("Plug-in:", "Entfernungebscheinigung wird erstellt!", level=Qgis.Info,duration=3)
+                self.iface.messageBar().pushMessage("Plugin:", "Entfernungbescheinigung wird erstellt!", level=Qgis.Info,duration=3)
 
                 """vordefinierte Objekte"""
                 project  = QgsProject.instance()
@@ -221,9 +221,9 @@ class entf_besch:
                 filename = self.dlg.proj_name.text()
 
                 """Radio-Button Auswahl abholen, speichern in Variable für request an ORS-API"""
-                if self.dlg.car.isChecked() == True:
+                if self.dlg.car.isChecked():
                     routeuser = "driving-car"
-                elif self.dlg.pedestrian.isChecked() == True:
+                elif self.dlg.pedestrian.isChecked():
                     routeuser = "foot-walking"
 
                 """hard coded EPSG für Transformation"""
@@ -250,7 +250,6 @@ class entf_besch:
                 print(s)
                 s[0],s[1]= transform(inProj,outProj,s[0],s[1])
                 print(s)
-                #s=[s[1],s[0]]
                 s=s[1],s[0]
                 print(s)
                 e[0],e[1]= transform(inProj,outProj,e[0],e[1])
@@ -359,7 +358,7 @@ class entf_besch:
 
                 """Drucklayout Gestaltung"""
                 """(Seite 1)Überschrift"""
-                headLabel = "Kreis Unna - Entfernungebscheinigung"
+                headLabel = "Entfernungebscheinigung"
                 headp1 = QgsLayoutItemLabel(layout)
                 headp1.setText(headLabel)
                 headp1.setFont(QFont("Arial",18))
@@ -367,13 +366,13 @@ class entf_besch:
                 layout.addLayoutItem(headp1)
                 headp1.attemptMove(QgsLayoutPoint(10,10))
 
-                """(Seite 1) Kreis Unna Logo """
-                logo = QgsLayoutItemPicture(layout)
-                logo.setMode(QgsLayoutItemPicture.FormatRaster)
-                logo.setPicturePath(self.plugin_dir+"/KU-Logo_RGB.jpg")
-                logo.attemptResize(QgsLayoutSize(15,15), QgsUnitTypes.LayoutMillimeters)
-                logo.attemptMove(QgsLayoutPoint(273,7),0)
-                layout.addLayoutItem(logo)
+                """(Seite 1) Logo """
+                #logo = QgsLayoutItemPicture(layout)
+                #logo.setMode(QgsLayoutItemPicture.FormatRaster)
+                #logo.setPicturePath(self.plugin_dir+"/pfad")
+                #logo.attemptResize(QgsLayoutSize(15,15), QgsUnitTypes.LayoutMillimeters)
+                #logo.attemptMove(QgsLayoutPoint(273,7),0)
+                #layout.addLayoutItem(logo)
 
                 """ (Seite 1) Hauptkarte zum Layout hinzufügen"""
                 map = QgsLayoutItemMap(layout)
@@ -421,7 +420,7 @@ class entf_besch:
                 layout.addLayoutItem(headp2)
                 headp2.attemptMove(QgsLayoutPoint(10,10), page= 1)
 
-                """(Seite 1) Kreis Unna Logo """
+                """(Seite 1) Logo """
                 logo2 = QgsLayoutItemPicture(layout)
                 logo2.setMode(QgsLayoutItemPicture.FormatRaster)
                 logo2.setPicturePath(self.plugin_dir+"/KU-Logo_RGB.jpg")
