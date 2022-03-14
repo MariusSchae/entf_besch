@@ -421,12 +421,12 @@ class entf_besch:
                 headp2.attemptMove(QgsLayoutPoint(10,10), page= 1)
 
                 """(Seite 1) Logo """
-                logo2 = QgsLayoutItemPicture(layout)
-                logo2.setMode(QgsLayoutItemPicture.FormatRaster)
-                logo2.setPicturePath(self.plugin_dir+"/KU-Logo_RGB.jpg")
-                logo2.attemptResize(QgsLayoutSize(15,15), QgsUnitTypes.LayoutMillimeters)
-                logo2.attemptMove(QgsLayoutPoint(185,7),page = 1)
-                layout.addLayoutItem(logo2)
+                #logo2 = QgsLayoutItemPicture(layout)
+                #logo2.setMode(QgsLayoutItemPicture.FormatRaster)
+                #logo2.setPicturePath(self.plugin_dir+"/pfad")
+                #logo2.attemptResize(QgsLayoutSize(15,15), QgsUnitTypes.LayoutMillimeters)
+                #logo2.attemptMove(QgsLayoutPoint(185,7),page = 1)
+                #layout.addLayoutItem(logo2)
 
                 """(Seite 2)Angabe zu über """
                 ueberLabel = QgsLayoutItemLabel(layout)
